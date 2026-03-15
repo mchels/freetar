@@ -183,10 +183,14 @@ function transpose_note(note, transpose_value) {
 
 function initialise_columns() {
     let column_count = 1;
+    let column_width = 0; // 0 means "auto"
     let original_content = null;
     const columnsCount = $('#columns_count');
     const columnsDown = $('#columns_down');
     const columnsUp = $('#columns_up');
+    const widthValue = $('#width_value');
+    const widthDown = $('#width_down');
+    const widthUp = $('#width_up');
     const tabDiv = $('.tab');
 
     // Store original content
@@ -204,8 +208,27 @@ function initialise_columns() {
         applyColumns();
     });
 
+    widthUp.click(function () {
+        if (column_width === 0) {
+            column_width = 20;
+        } else {
+            column_width += 10;
+        }
+        applyColumns();
+    });
+
+    widthDown.click(function () {
+        if (column_width > 20) {
+            column_width -= 10;
+        } else {
+            column_width = 0;
+        }
+        applyColumns();
+    });
+
     function applyColumns() {
         columnsCount.text(column_count);
+        widthValue.text(column_width > 0 ? column_width + 'ch' : 'auto');
 
         if (!original_content || tabDiv.length === 0) {
             return;
@@ -251,14 +274,15 @@ function initialise_columns() {
             const lines = processedHtml.split('\n');
             const linesPerColumn = Math.ceil(lines.length / column_count);
 
-            let columnHtml = '<div style="display: grid; grid-template-columns: repeat(' + column_count + ', 1fr); gap: 2rem;">';
+            let columnHtml = '<div style="display: grid; grid-template-columns: repeat(' + column_count + ', minmax(0, 1fr)); gap: 2rem;">';
 
             for (let col = 0; col < column_count; col++) {
                 const startLine = col * linesPerColumn;
                 const endLine = Math.min(startLine + linesPerColumn, lines.length);
                 const columnLines = lines.slice(startLine, endLine);
 
-                columnHtml += '<div class="font-monospace" style="white-space: pre-wrap;">';
+                const widthStyle = column_width > 0 ? ' max-width: ' + column_width + 'ch; overflow: hidden;' : '';
+                columnHtml += '<div class="font-monospace" style="white-space: pre-wrap;' + widthStyle + '">';
                 // Join lines and trim leading/trailing whitespace from the column
                 const columnContent = columnLines.join('\n').replace(/^\s+/, '');
                 columnHtml += columnContent;

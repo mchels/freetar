@@ -83,6 +83,19 @@ class SongDetail:
         # (?P<bass>/[A-Ha-h](#|b)?)? :  Chord quality is anything after the root, including parens in the case of 'm(maj7)'
         # tab = re.sub(r'\[ch\](?P<root>[A-Ga-g](#|b)?)(?P<quality>[#\w()]+)?(?P<bass>/[A-Ga-g](#|b)?)?\[\/ch\]', self.parse_chord, tab)
         tab = re.sub(r'\[ch\](?P<root>[A-Ha-h](#|b)?)(?P<quality>[^[/]+)?(?P<bass>/[A-Ha-h](#|b)?)?\[\/ch\]', self.parse_chord, tab)
+
+        # Convert &nbsp; back to regular spaces on prose lines so they word-wrap naturally
+        lines = tab.split('<br/>')
+        processed = []
+        for line in lines:
+            stripped = re.sub(r'<[^>]+>', '', line).replace('&nbsp;', ' ').strip()
+            is_chord_line = '<span class="chord' in line
+            is_tab_line = bool(re.match(r'^[A-Ga-ge]\|', stripped)) or '|--' in stripped
+            if not is_chord_line and not is_tab_line and stripped:
+                line = line.replace('&nbsp;', ' ')
+            processed.append(line)
+        tab = '<br/>'.join(processed)
+
         self.tab = tab
 
     def parse_chord(self, chord):
