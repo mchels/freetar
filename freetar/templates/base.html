@@ -39,7 +39,7 @@
 <body>
 
   <nav class="mb-2 navbar navbar-expand-lg bg-body-tertiary d-print-none">
-    <div class="container d-flex" style="flex-wrap: nowrap;">
+    <div class="container-fluid d-flex" style="flex-wrap: nowrap;">
       <a class="navbar-brand" href="/">Freetar</a>
       <form class="d-flex w-50" method="GET" action="/search">
           {% if search_term %}
@@ -66,7 +66,7 @@
   </nav>
 
 
-  <div class="container">
+  <div class="container-fluid">
       <div class="row">
           {% block content %}
           {% endblock %}
