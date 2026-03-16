@@ -182,7 +182,7 @@ function transpose_note(note, transpose_value) {
 }
 
 function initialise_columns() {
-    let column_count = 1;
+    let column_count = parseInt(localStorage.getItem("column_count")) || 4;
     let column_width = 0; // 0 means "auto"
     let original_content = null;
     const columnsCount = $('#columns_count');
@@ -200,11 +200,13 @@ function initialise_columns() {
 
     columnsUp.click(function () {
         column_count = Math.min(10, column_count + 1);
+        localStorage.setItem("column_count", column_count);
         applyColumns();
     });
 
     columnsDown.click(function () {
         column_count = Math.max(1, column_count - 1);
+        localStorage.setItem("column_count", column_count);
         applyColumns();
     });
 

@@ -38,34 +38,34 @@
       <div class="form-check form-switch autoscroll me-4">
           <input class="form-check-input" type="checkbox" role="switch" id="checkbox_autoscroll" />
           <label class="form-check-label" for="checkbox_autoscroll">Autoscroll</label>
-          <span role="button" id="scroll_speed_down" title="decrease scroll speed" class="m-2" >❮❮</span>
-          <span role="button" id="scroll_speed_up" title="increase scroll speed" class="m-2" >❯❯</span>
+          <button type="button" id="scroll_speed_down" title="decrease scroll speed" class="btn btn-outline-secondary btn-sm ms-2">&#x276E;&#x276E;</button>
+          <button type="button" id="scroll_speed_up" title="increase scroll speed" class="btn btn-outline-secondary btn-sm ms-1">&#x276F;&#x276F;</button>
       </div>
-      
+
       <div class="form-check form-switch me-4">
           <input class="form-check-input" type="checkbox" role="switch" id="checkbox_view_chords"/>
           <label class="form-check-label" for="checkbox_view_chords">Show chords</label>
       </div>
-   
-      <div>
-          <span class="">Transpose </span>
-          <span role="button" id="transpose_down" title="transpose down" class="m-2">↓</span>
-          <span role="button" id="transpose_up" title="transpose up" class="m-2">↑</span>
-          <span role="button" id="transposed_steps" class="m-2"></span>
+
+      <div class="me-4">
+          <span>Transpose</span>
+          <button type="button" id="transpose_down" title="transpose down" class="btn btn-outline-secondary btn-sm ms-2">&darr;</button>
+          <button type="button" id="transpose_up" title="transpose up" class="btn btn-outline-secondary btn-sm ms-1">&uarr;</button>
+          <span role="button" id="transposed_steps" class="ms-1"></span>
       </div>
 
-      <div>
-          <span class="">Columns </span>
-          <span role="button" id="columns_down" title="decrease columns" class="m-2">↓</span>
-          <span role="button" id="columns_up" title="increase columns" class="m-2">↑</span>
-          <span id="columns_count" class="m-2">1</span>
+      <div class="me-4">
+          <span>Columns</span>
+          <button type="button" id="columns_down" title="decrease columns" class="btn btn-outline-secondary btn-sm ms-2">&darr;</button>
+          <button type="button" id="columns_up" title="increase columns" class="btn btn-outline-secondary btn-sm ms-1">&uarr;</button>
+          <span id="columns_count" class="ms-1">4</span>
       </div>
 
-      <div>
-          <span class="">Width </span>
-          <span role="button" id="width_down" title="decrease column width" class="m-2">↓</span>
-          <span role="button" id="width_up" title="increase column width" class="m-2">↑</span>
-          <span id="width_value" class="m-2">auto</span>
+      <div class="me-4">
+          <span>Width</span>
+          <button type="button" id="width_down" title="decrease column width" class="btn btn-outline-secondary btn-sm ms-2">&darr;</button>
+          <button type="button" id="width_up" title="increase column width" class="btn btn-outline-secondary btn-sm ms-1">&uarr;</button>
+          <span id="width_value" class="ms-1">auto</span>
       </div>
   </div>
 
