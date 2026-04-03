@@ -266,11 +266,7 @@ function initialise_columns() {
             // First, convert <br> tags to newlines for easier splitting
             let htmlContent = original_content.replace(/<br\s*\/?>/gi, '\n');
 
-            // Create a temporary element to extract text while preserving bold tags
-            const tempDiv = $('<div>').html(htmlContent);
-
-            // Get HTML content but normalize it to preserve formatting
-            let processedHtml = tempDiv.html();
+            let processedHtml = htmlContent;
 
             // Split by newlines while preserving HTML tags
             const lines = processedHtml.split('\n');
@@ -285,8 +281,7 @@ function initialise_columns() {
 
                 const widthStyle = column_width > 0 ? ' max-width: ' + column_width + 'ch; overflow: hidden;' : '';
                 columnHtml += '<div class="font-monospace" style="white-space: pre-wrap;' + widthStyle + '">';
-                // Join lines and trim leading/trailing whitespace from the column
-                const columnContent = columnLines.join('\n').replace(/^\s+/, '');
+                const columnContent = columnLines.join('\n').replace(/^\n+/, '');
                 columnHtml += columnContent;
                 columnHtml += '</div>';
             }
