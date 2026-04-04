@@ -228,6 +228,43 @@ function initialise_columns() {
         applyColumns();
     });
 
+    function textLength(htmlLine) {
+        let text = htmlLine.replace(/<[^>]*>/g, '');
+        text = text.replace(/&nbsp;/g, ' ');
+        text = text.replace(/&amp;/g, '&');
+        text = text.replace(/&lt;/g, '<');
+        text = text.replace(/&gt;/g, '>');
+        return text.length;
+    }
+
+    function isChordOrTabLine(htmlLine) {
+        if (htmlLine.indexOf('class="chord') !== -1) return true;
+        let text = htmlLine.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+        return /^[A-Ga-ge]\|/.test(text) || text.indexOf('|--') !== -1;
+    }
+
+    function wordWrap(text, maxWidth) {
+        if (maxWidth <= 0) return text;
+        const words = text.split('&nbsp;');
+        if (words.length <= 1) return text;
+        const wrapped = [];
+        let line = words[0];
+        let lineLen = textLength(words[0]);
+        for (let i = 1; i < words.length; i++) {
+            const wordLen = textLength(words[i]);
+            if (lineLen + 1 + wordLen <= maxWidth) {
+                line += '&nbsp;' + words[i];
+                lineLen += 1 + wordLen;
+            } else {
+                wrapped.push(line);
+                line = words[i];
+                lineLen = wordLen;
+            }
+        }
+        if (line) wrapped.push(line);
+        return wrapped.join('\n');
+    }
+
     function applyColumns() {
         columnsCount.text(column_count);
         widthValue.text(column_width > 0 ? column_width + 'ch' : 'auto');
@@ -272,16 +309,45 @@ function initialise_columns() {
             const lines = processedHtml.split('\n');
             const linesPerColumn = Math.ceil(lines.length / column_count);
 
-            let columnHtml = '<div style="display: grid; grid-template-columns: repeat(' + column_count + ', minmax(0, 1fr)); gap: 2rem;">';
+            // Calculate column widths from chord/tab lines only
+            const columnWidths = [];
+            for (let col = 0; col < column_count; col++) {
+                const startLine = col * linesPerColumn;
+                const endLine = Math.min(startLine + linesPerColumn, lines.length);
+                const columnLines = lines.slice(startLine, endLine);
+                let maxLen = 0;
+                for (const line of columnLines) {
+                    if (isChordOrTabLine(line)) {
+                        const len = textLength(line);
+                        if (len > maxLen) maxLen = len;
+                    }
+                }
+                const padded = maxLen + 4;
+                columnWidths.push(column_width > 0 ? Math.min(padded, column_width) : padded);
+            }
+
+            const gridCols = columnWidths.map(function(w) { return w + 'ch'; }).join(' ');
+            let columnHtml = '<div style="display: grid; grid-template-columns: ' + gridCols + '; gap: 2rem; overflow-x: auto;">';
 
             for (let col = 0; col < column_count; col++) {
                 const startLine = col * linesPerColumn;
                 const endLine = Math.min(startLine + linesPerColumn, lines.length);
                 const columnLines = lines.slice(startLine, endLine);
 
+                // Hard-wrap prose lines to fit the column width
+                const wrapWidth = columnWidths[col];
+                const wrappedLines = [];
+                for (const line of columnLines) {
+                    if (!isChordOrTabLine(line) && textLength(line) > wrapWidth) {
+                        wrappedLines.push(wordWrap(line, wrapWidth));
+                    } else {
+                        wrappedLines.push(line);
+                    }
+                }
+
                 const widthStyle = column_width > 0 ? ' max-width: ' + column_width + 'ch; overflow: hidden;' : '';
-                columnHtml += '<div class="font-monospace" style="white-space: pre-wrap;' + widthStyle + '">';
-                const columnContent = columnLines.join('\n').replace(/^\n+/, '');
+                columnHtml += '<div class="font-monospace" style="white-space: pre-wrap; min-width: 0;' + widthStyle + '">';
+                const columnContent = wrappedLines.join('\n').replace(/^\n+/, '');
                 columnHtml += columnContent;
                 columnHtml += '</div>';
             }

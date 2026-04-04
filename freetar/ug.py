@@ -93,7 +93,7 @@ class SongDetail:
             quality = '<span class="chord-quality">%s</span>' % chord.group('quality')
         if chord.group('bass') is not None:
             bass = '/<span class="chord-bass">%s</span>' % chord.group('bass')[1:]
-        return '<span class="chord fw-bold">%s</span>' % (root + quality + bass)
+        return '<span class="chord fw-bold" style="white-space:nowrap">%s</span>' % (root + quality + bass)
 
 
 @dataclass
