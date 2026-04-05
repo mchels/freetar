@@ -307,16 +307,43 @@ function initialise_columns() {
 
             // Split by newlines while preserving HTML tags
             const lines = processedHtml.split('\n');
-            const linesPerColumn = Math.ceil(lines.length / column_count);
+
+            // Group chord+lyrics pairs into atomic units that cannot be split across columns
+            const units = [];
+            for (let i = 0; i < lines.length; ) {
+                if (lines[i].indexOf('<span class="chord') !== -1 && i + 1 < lines.length) {
+                    units.push([lines[i], lines[i + 1]]);
+                    i += 2;
+                } else {
+                    units.push([lines[i]]);
+                    i += 1;
+                }
+            }
+
+            // Distribute units into columns, never splitting a chord-lyrics pair
+            const totalLines = units.reduce(function(sum, u) { return sum + u.length; }, 0);
+            const targetPerCol = Math.ceil(totalLines / column_count);
+            const columns = [];
+            var currentCol = [];
+            var currentCount = 0;
+
+            for (var u = 0; u < units.length; u++) {
+                var unit = units[u];
+                if (currentCount > 0 && currentCount + unit.length > targetPerCol && columns.length < column_count - 1) {
+                    columns.push(currentCol);
+                    currentCol = [];
+                    currentCount = 0;
+                }
+                for (var k = 0; k < unit.length; k++) { currentCol.push(unit[k]); }
+                currentCount += unit.length;
+            }
+            if (currentCol.length > 0) { columns.push(currentCol); }
 
             // Calculate column widths from chord/tab lines only
             const columnWidths = [];
-            for (let col = 0; col < column_count; col++) {
-                const startLine = col * linesPerColumn;
-                const endLine = Math.min(startLine + linesPerColumn, lines.length);
-                const columnLines = lines.slice(startLine, endLine);
+            for (var col = 0; col < columns.length; col++) {
                 let maxLen = 0;
-                for (const line of columnLines) {
+                for (const line of columns[col]) {
                     if (isChordOrTabLine(line)) {
                         const len = textLength(line);
                         if (len > maxLen) maxLen = len;
@@ -329,15 +356,11 @@ function initialise_columns() {
             const gridCols = columnWidths.map(function(w) { return w + 'ch'; }).join(' ');
             let columnHtml = '<div style="display: grid; grid-template-columns: ' + gridCols + '; gap: 2rem; overflow-x: auto;">';
 
-            for (let col = 0; col < column_count; col++) {
-                const startLine = col * linesPerColumn;
-                const endLine = Math.min(startLine + linesPerColumn, lines.length);
-                const columnLines = lines.slice(startLine, endLine);
-
+            for (var c = 0; c < columns.length; c++) {
                 // Hard-wrap prose lines to fit the column width
-                const wrapWidth = columnWidths[col];
+                const wrapWidth = columnWidths[c];
                 const wrappedLines = [];
-                for (const line of columnLines) {
+                for (const line of columns[c]) {
                     if (!isChordOrTabLine(line) && textLength(line) > wrapWidth) {
                         wrappedLines.push(wordWrap(line, wrapWidth));
                     } else {
@@ -347,8 +370,7 @@ function initialise_columns() {
 
                 const widthStyle = column_width > 0 ? ' max-width: ' + column_width + 'ch; overflow: hidden;' : '';
                 columnHtml += '<div class="font-monospace" style="white-space: pre-wrap; min-width: 0;' + widthStyle + '">';
-                const columnContent = wrappedLines.join('\n').replace(/^\n+/, '');
-                columnHtml += columnContent;
+                columnHtml += wrappedLines.join('\n').replace(/^\n+/, '');
                 columnHtml += '</div>';
             }
 
