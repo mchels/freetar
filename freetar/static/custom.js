@@ -182,7 +182,11 @@ function transpose_note(note, transpose_value) {
 }
 
 function initialise_columns() {
-    let column_count = parseInt(localStorage.getItem("column_count")) || 4;
+    const DEFAULT_COLUMN_COUNT = 3;
+    localStorage.removeItem("column_count");
+    const pageKey = window.location.pathname;
+    const columnCounts = JSON.parse(localStorage.getItem("column_counts")) || {};
+    let column_count = columnCounts[pageKey] ?? DEFAULT_COLUMN_COUNT;
     let column_width = 0; // 0 means "auto"
     let original_content = null;
     const columnsCount = $('#columns_count');
@@ -198,15 +202,21 @@ function initialise_columns() {
         original_content = tabDiv.html();
     }
 
+    function saveColumnCount() {
+        const map = JSON.parse(localStorage.getItem("column_counts")) || {};
+        map[pageKey] = column_count;
+        localStorage.setItem("column_counts", JSON.stringify(map));
+    }
+
     columnsUp.click(function () {
         column_count = Math.min(10, column_count + 1);
-        localStorage.setItem("column_count", column_count);
+        saveColumnCount();
         applyColumns();
     });
 
     columnsDown.click(function () {
         column_count = Math.max(1, column_count - 1);
-        localStorage.setItem("column_count", column_count);
+        saveColumnCount();
         applyColumns();
     });
 
