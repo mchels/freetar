@@ -60,15 +60,45 @@
   function hasChordSpan(line) {
     return line.nodes.some(n => n.nodeType === 1 && n.matches && n.matches('span[data-name]'));
   }
-  // Plain-text chord-line fallback: every whitespace-separated token must look
-  // like a chord name. UG only wraps some chord regions in <span data-name>;
-  // others (e.g. outros, refrains in this Old Man tab) are bare text.
+  // Plain-text chord-line fallback. UG hydrates chord spans lazily as lines
+  // scroll into view, so chord lines that are still below the fold (or never
+  // wrapped at all in some sections) arrive as bare text. We accept a line as
+  // a chord line if at least one token is chord-shaped and every other token
+  // is either chord-shaped or a pure separator like `( - ) | , : /`.
   const CHORD_TOKEN = /^[A-G][#b]?[a-zA-Z0-9+\-]*(?:\/[A-G][#b]?)?$/;
+  const CHORD_SEPARATOR = /^[()\-|,.:\/]+$/;
   function looksLikeChordText(text) {
     const t = text.trim();
     if (!t) return false;
     const tokens = t.split(/\s+/);
-    return tokens.length > 0 && tokens.every(tok => CHORD_TOKEN.test(tok));
+    let chordCount = 0;
+    for (const tok of tokens) {
+      if (CHORD_TOKEN.test(tok)) chordCount++;
+      else if (!CHORD_SEPARATOR.test(tok)) return false;
+    }
+    return chordCount > 0;
+  }
+  // For lines we recognised as chord lines but UG hasn't wrapped, synthesise
+  // span[data-name] elements so the styleTag rule (bold + inherited color)
+  // applies. Whitespace runs are preserved as-is so column alignment matches
+  // the original source.
+  function wrapChordTokens(text) {
+    const out = [];
+    const parts = text.split(/(\s+)/);
+    for (const part of parts) {
+      if (!part) continue;
+      if (/^\s+$/.test(part)) {
+        out.push(document.createTextNode(part));
+      } else if (CHORD_TOKEN.test(part)) {
+        const span = document.createElement('span');
+        span.setAttribute('data-name', part);
+        span.textContent = part;
+        out.push(span);
+      } else {
+        out.push(document.createTextNode(part));
+      }
+    }
+    return out;
   }
   function isTabLine(text) {
     const t = text.trim();
@@ -86,7 +116,11 @@
     let curNodes = [];
     let curText = '';
     const flush = () => {
-      lines.push({ nodes: curNodes, text: curText });
+      const line = { nodes: curNodes, text: curText };
+      if (!hasChordSpan(line) && looksLikeChordText(curText)) {
+        line.nodes = wrapChordTokens(curText);
+      }
+      lines.push(line);
       curNodes = [];
       curText = '';
     };
