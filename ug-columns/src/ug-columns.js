@@ -2,7 +2,7 @@
   const STORAGE_KEY = 'ug-columns:settings';
   const ROOT_ID = 'ug-cols-root';
   const MAX_COLUMNS = 10;
-  const DEFAULTS = { columns: 3, width: 0, fontPx: 0 };
+  const DEFAULTS = { columns: 3, width: 0, fontPx: 0, transposeOffset: 0 };
 
   if (document.getElementById(ROOT_ID)) {
     location.reload();
@@ -19,8 +19,6 @@
     alert('UG-cols: chord block <pre> not found on this page.');
     return;
   }
-  const meta = document.querySelector('.GwtfQ');
-
   const pathKey = location.pathname;
   const allSettings = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
   const settings = Object.assign({}, DEFAULTS, allSettings[pathKey] || {});
@@ -35,24 +33,36 @@
 
   function readMeta() {
     const out = { Tuning: '', Key: '', Capo: '' };
-    if (!meta) return out;
-    meta.querySelectorAll('.NC05z').forEach(b => {
-      const kids = b.querySelectorAll(':scope > span, :scope > a');
-      if (kids.length < 2) return;
-      const k = kids[0].textContent.replace(/[: ]+$/, '').trim();
-      if (k in out) out[k] = kids[kids.length - 1].textContent.trim();
-    });
-    if (!out.Tuning && !out.Key && !out.Capo) {
-      ['Tuning', 'Key', 'Capo'].forEach(k => {
-        const labelText = k + ':';
-        for (const el of meta.querySelectorAll('span, a')) {
-          if (el.textContent.trim() === labelText) {
-            const sib = el.nextElementSibling || el.parentElement.querySelector('a, span:not(:first-child)');
-            if (sib && sib !== el) out[k] = sib.textContent.trim();
-            break;
-          }
-        }
+    // New layout: <table><tr><th>Tuning: </th><td>...</td></tr>...</table>.
+    for (const tr of document.querySelectorAll('tr')) {
+      const th = tr.querySelector('th');
+      const td = tr.querySelector('td');
+      if (!th || !td) continue;
+      const k = th.textContent.replace(/[: ]+$/, '').trim();
+      if (k in out && !out[k]) out[k] = td.textContent.trim();
+    }
+    if (out.Tuning && out.Key && out.Capo) return out;
+    // Old layout fallback: .GwtfQ container with .NC05z blocks.
+    const meta = document.querySelector('.GwtfQ');
+    if (meta) {
+      meta.querySelectorAll('.NC05z').forEach(b => {
+        const kids = b.querySelectorAll(':scope > span, :scope > a');
+        if (kids.length < 2) return;
+        const k = kids[0].textContent.replace(/[: ]+$/, '').trim();
+        if (k in out && !out[k]) out[k] = kids[kids.length - 1].textContent.trim();
       });
+      if (!out.Tuning && !out.Key && !out.Capo) {
+        ['Tuning', 'Key', 'Capo'].forEach(k => {
+          const labelText = k + ':';
+          for (const el of meta.querySelectorAll('span, a')) {
+            if (el.textContent.trim() === labelText) {
+              const sib = el.nextElementSibling || el.parentElement.querySelector('a, span:not(:first-child)');
+              if (sib && sib !== el) out[k] = sib.textContent.trim();
+              break;
+            }
+          }
+        });
+      }
     }
     return out;
   }
@@ -296,32 +306,78 @@
     () => { settings.fontPx = Math.min(48, settings.fontPx + 1); saveSettings(); render(); }
   );
 
-  // Transpose: proxy UG's own buttons; read offset from UG's "Tr. N" label.
-  function getUGBtn(label) {
-    return document.querySelector('button[aria-label="' + label + '"]');
+  // Transpose ourselves — don't proxy UG's buttons. UG's new layout renders
+  // two "Transpose" panels and only one is wired to state, and its identity
+  // isn't reliably distinguishable from the DOM. Since chord tokens live in
+  // span[data-name] elements that we already clone into our columns, we can
+  // shift them in place.
+  const CHROM_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const CHROM_FLAT  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+  function noteIndex(note) {
+    const i = CHROM_SHARP.indexOf(note);
+    return i !== -1 ? i : CHROM_FLAT.indexOf(note);
   }
-  function getUGTranspose() {
-    const sbs = document.querySelectorAll('[role="spinbutton"]');
-    for (const sb of sbs) {
-      const lab = sb.querySelector('label, .CF9h5');
-      if (lab && lab.textContent.trim() === 'Transpose') {
-        const valEl = sb.querySelector('div[aria-hidden="true"]');
-        if (valEl) return valEl.textContent.trim();
+  function transposeChord(chord, offset) {
+    if (!offset) return chord;
+    // Replace every A-G root (with optional #/b) — handles both root and
+    // slash-bass in one pass, e.g. "F#/A#" -> "G/B" at +1.
+    return chord.replace(/([A-G])([#b]?)/g, (_, letter, acc) => {
+      const i = noteIndex(letter + acc);
+      if (i === -1) return letter + acc;
+      const j = ((i + offset) % 12 + 12) % 12;
+      // Preserve accidental preference: flat -> flat, otherwise sharp.
+      return (acc === 'b' ? CHROM_FLAT : CHROM_SHARP)[j];
+    });
+  }
+  function applyTransposeToLines(lines, offset) {
+    if (!offset) return;
+    for (const line of lines) {
+      const nodes = line.nodes;
+      for (let i = 0; i < nodes.length; i++) {
+        const n = nodes[i];
+        if (n.nodeType !== 1 || !n.getAttribute || !n.getAttribute('data-name')) continue;
+        const orig = n.textContent;
+        const shifted = transposeChord(orig, offset);
+        if (shifted === orig) continue;
+        n.textContent = shifted;
+        n.setAttribute('data-name', shifted);
+        // Preserve chord/lyric alignment by absorbing the length change into
+        // the following whitespace text node. If we can't absorb it all, the
+        // rest of the line shifts locally — same behavior as UG's own
+        // transpose on chord charts where a chord widens past its gap.
+        const delta = shifted.length - orig.length;
+        if (delta === 0) continue;
+        const next = nodes[i + 1];
+        if (!next || next.nodeType !== 3) continue;
+        const t = next.textContent;
+        if (!/^ +/.test(t)) continue;
+        if (delta > 0) {
+          // Eat leading spaces, but keep at least one gap if any content
+          // follows this whitespace on the same line — chord-to-chord spacing
+          // is typically a single space between separate spans, and eating it
+          // makes adjacent chords collide (e.g. "Dsus2 D" → "D#sus2D#").
+          const spaces = t.match(/^ +/)[0].length;
+          const hasMoreInNode = t.length > spaces;
+          let hasMoreAfter = false;
+          for (let j = i + 2; j < nodes.length; j++) {
+            if ((nodes[j].textContent || '').length) { hasMoreAfter = true; break; }
+          }
+          const hasMore = hasMoreInNode || hasMoreAfter;
+          const eatable = hasMore ? Math.max(0, spaces - 1) : spaces;
+          next.textContent = t.slice(Math.min(delta, eatable));
+        } else {
+          next.textContent = ' '.repeat(-delta) + t;
+        }
       }
+      line.text = nodes.map(n => n.textContent).join('');
     }
-    return 'Tr. 0';
   }
   const transposeStep = makeStepper(
     'Trans',
-    () => getUGTranspose(),
-    () => { const b = getUGBtn('Transpose Down'); if (b) b.click(); setTimeout(() => transposeStep._update(), 50); },
-    () => { const b = getUGBtn('Transpose Up'); if (b) b.click(); setTimeout(() => transposeStep._update(), 50); }
+    () => 'Tr. ' + settings.transposeOffset,
+    () => { settings.transposeOffset -= 1; saveSettings(); render(); },
+    () => { settings.transposeOffset += 1; saveSettings(); render(); }
   );
-
-  const flatsBtn = makeBtn('♭/♯', () => {
-    const b = getUGBtn('Use Flats');
-    if (b) b.click();
-  }, 'Toggle flats / sharps');
 
   const metaInfo = readMeta();
   const tuningChip = makeChip('Tuning', metaInfo.Tuning);
@@ -333,7 +389,7 @@
   const resetBtn = makeBtn('×', () => location.reload(), 'Reload page (exit)');
 
   actionBar.append(
-    colsStep, widthStep, fontStep, transposeStep, flatsBtn,
+    colsStep, widthStep, fontStep, transposeStep,
     tuningChip, keyChip, capoChip,
     spacer, resetBtn
   );
@@ -360,6 +416,7 @@
     transposeStep._update();
 
     const lines = splitLines(pre);
+    applyTransposeToLines(lines, settings.transposeOffset);
     const units = buildUnits(lines);
     const cols = distribute(units, settings.columns);
     const widths = colWidths(cols, settings.width);
